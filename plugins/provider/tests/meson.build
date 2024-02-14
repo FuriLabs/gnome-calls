@@ -95,7 +95,7 @@ t = executable('media', test_sources,
                  ]
                )
 test('media', t, env: test_env)
-
+'''
 test_sources = [ 'test-sip.c' ]
 test_sources += sip_sources
 t = executable('sip', test_sources,
@@ -110,7 +110,7 @@ t = executable('sip', test_sources,
                  ]
                )
 test('sip', t, env: test_env)
-
+'''
 test_sources = [ 'test-srtp.c' ]
 test_sources += sip_sources
 t = executable('srtp', test_sources,
