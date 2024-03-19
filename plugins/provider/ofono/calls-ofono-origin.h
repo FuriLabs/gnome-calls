@@ -29,11 +29,15 @@
 
 #include <glib-object.h>
 
+#include <libmm-glib.h>
+
 G_BEGIN_DECLS
 
 #define CALLS_TYPE_OFONO_ORIGIN (calls_ofono_origin_get_type ())
+#define CALLS_TYPE_MM_ORIGIN (calls_mm_origin_get_type ())
 
 G_DECLARE_FINAL_TYPE (CallsOfonoOrigin, calls_ofono_origin, CALLS, OFONO_ORIGIN, GObject);
+G_DECLARE_FINAL_TYPE (CallsMMOrigin, calls_mm_origin, CALLS, MM_ORIGIN, GObject);
 
 CallsOfonoOrigin *calls_ofono_origin_new (GDBOModem *modem);
 gboolean          calls_ofono_origin_matches (CallsOfonoOrigin *self,

@@ -36,6 +36,8 @@ ofono_deps = [
   dependency('gobject-2.0'),
   dependency('gtk+-3.0'),
   dependency('libpeas-1.0'),
+  dependency('ModemManager'),
+  dependency('mm-glib', version: '>= 1.12.0'),
 ]
 
 ofono_sources = files(
