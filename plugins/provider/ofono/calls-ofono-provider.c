@@ -32,6 +32,7 @@
 
 #include <libgdbofono/gdbo-manager.h>
 #include <libgdbofono/gdbo-modem.h>
+#include <libgdbofono/gdbo-sim.h>
 
 #include <glib/gi18n.h>
 #include <libpeas.h>
@@ -52,6 +53,7 @@ struct _CallsOfonoProvider {
   GDBusConnection *connection;
   /** D-Bus proxy for the oFono Manager object */
   GDBOManager     *manager;
+  GDBOSimManager  *sim;
   /** Map of D-Bus object paths to a struct CallsModemData */
   GHashTable      *modems;
   /* A list of CallsOrigins */
@@ -284,6 +286,98 @@ modem_properties_get_name (GVariant *properties)
   return NULL;
 }
 
+static void
+sim_manager_get_properties_cb (GDBOSimManager               *sim,
+                               GAsyncResult                 *res,
+                               struct CallsModemProxyNewData *data)
+{
+  gboolean ok;
+  g_autoptr (GVariant) properties = NULL;
+  g_autoptr (GError) error = NULL;
+  GVariantIter iter;
+  gchar *key;
+  GVariant *value;
+  gchar *subscriber_number = NULL;
+
+  ok = gdbo_sim_manager_call_get_properties_finish (sim,
+                                                    &properties,
+                                                    res,
+                                                    &error);
+  if (!ok) {
+    g_warning ("Error getting properties from oFono"
+               " SimManager: %s",
+               error->message);
+    return;
+  }
+
+  {
+    g_autofree char *text = g_variant_print (properties, TRUE);
+    g_debug ("Received properties from oFono"
+             " SimManager: %s",
+             text);
+  }
+
+  g_variant_iter_init (&iter, properties);
+  while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
+    if (g_strcmp0 (key, "SubscriberNumbers") == 0) {
+      if (g_variant_is_of_type (value, G_VARIANT_TYPE_STRING_ARRAY)) {
+        GVariantIter sub_iter;
+        const gchar *number;
+        g_variant_iter_init (&sub_iter, value);
+        if (g_variant_iter_loop (&sub_iter, "s", &number)) {
+          subscriber_number = g_strdup (number);
+          g_debug ("SubscriberNumber: %s", subscriber_number);
+          break;
+        }
+      }
+    }
+  }
+
+  if (subscriber_number != NULL) {
+    g_free (data->name);
+    data->name = subscriber_number;
+  }
+
+  gdbo_modem_proxy_new (data->self->connection,
+                        G_DBUS_PROXY_FLAGS_NONE,
+                        g_dbus_proxy_get_name (G_DBUS_PROXY (data->self->manager)),
+                        g_dbus_proxy_get_object_path (G_DBUS_PROXY (sim)),
+                        NULL,
+                        (GAsyncReadyCallback) modem_proxy_new_cb,
+                        data);
+}
+
+static void
+sim_new_cb (GDBusConnection               *connection,
+            GAsyncResult                  *res,
+            struct CallsModemProxyNewData *data)
+{
+  g_autoptr (GError) error = NULL;
+  GDBOSimManager *sim;
+
+  sim = gdbo_sim_manager_proxy_new_finish (res, &error);
+  if (!sim) {
+    g_warning ("Error creating oFono"
+               " SimManager proxy: %s",
+               error->message);
+
+    /* This should never be reached but if it does, then skip SimManager and go directly to modem proxy */
+    gdbo_modem_proxy_new (data->self->connection,
+                          G_DBUS_PROXY_FLAGS_NONE,
+                          g_dbus_proxy_get_name (G_DBUS_PROXY (data->self->manager)),
+                          g_dbus_proxy_get_object_path (G_DBUS_PROXY (data->self->manager)),
+                          NULL,
+                          (GAsyncReadyCallback) modem_proxy_new_cb,
+                          data);
+    return;
+  }
+
+  gdbo_sim_manager_call_get_properties (sim,
+                                        NULL,
+                                        (GAsyncReadyCallback) sim_manager_get_properties_cb,
+                                        data);
+}
+
 static const char *const *
 calls_ofono_provider_get_protocols (CallsProvider *provider)
 {
@@ -321,13 +415,13 @@ modem_added_cb (GDBOManager        *manager,
     g_variant_ref (data->ifaces);
   }
 
-  gdbo_modem_proxy_new (self->connection,
-                        G_DBUS_PROXY_FLAGS_NONE,
-                        g_dbus_proxy_get_name (G_DBUS_PROXY (manager)),
-                        path,
-                        NULL,
-                        (GAsyncReadyCallback) modem_proxy_new_cb,
-                        data);
+  gdbo_sim_manager_proxy_new (self->connection,
+                              G_DBUS_PROXY_FLAGS_NONE,
+                              g_dbus_proxy_get_name (G_DBUS_PROXY (manager)),
+                              path,
+                              NULL,
+                              (GAsyncReadyCallback) sim_new_cb,
+                              data);
 
   g_debug ("Modem `%s' addition in progress", path);
 }
