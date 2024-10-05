@@ -23,7 +23,7 @@
 
 
 gnome = import('gnome')
-dbus_interfaces = ['manager', 'modem', 'call', 'ussd', 'sim']
+dbus_interfaces = ['manager', 'modem', 'call', 'ussd', 'sim', 'ims']
 
 gdbofono_src = []
 gdbofono_headers = []

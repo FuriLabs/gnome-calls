@@ -41,12 +41,14 @@ struct _CallsOfonoOrigin {
   gchar                *name;
   GDBOVoiceCallManager *voice;
   GDBOSupplementaryServices *ussd;
+  GDBOIpMultimediaSystem *ims;
   gboolean              sending_tones;
   GString              *tone_queue;
   GHashTable           *calls;
 
   CallsUssdState        ussd_state;
   GStrv                 emergency_numbers;
+  gboolean              ims_registered;
 };
 
 static void calls_ofono_origin_message_source_interface_init (CallsOriginInterface *iface);
@@ -308,6 +310,48 @@ calls_ofono_ussd_cancel_finish (CallsUssd    *ussd,
 
 
 static void
+ims_get_properties_cb (GDBOIpMultimediaSystem *ims,
+                       GAsyncResult           *res,
+                       CallsOfonoOrigin       *self)
+{
+  gboolean ok;
+  GVariant *properties = NULL;
+  g_autoptr (GError) error = NULL;
+  GVariantIter iter;
+  gchar *key;
+  GVariant *value;
+  self->ims_registered = FALSE;
+
+  ok = gdbo_ip_multimedia_system_call_get_properties_finish
+         (ims, &properties, res, &error);
+  if (!ok) {
+    g_warning ("Error getting properties from oFono"
+               " IpMultimediaSystem `%s': %s",
+               self->name, error->message);
+    CALLS_ERROR (self, error);
+    return;
+  }
+
+  {
+    char *text = g_variant_print (properties, TRUE);
+    g_debug ("Received properties from oFono"
+             " IpMultimediaSystem `%s': %s",
+             self->name, text);
+    g_free (text);
+  }
+
+  g_variant_iter_init (&iter, properties);
+  while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
+    if (g_strcmp0 (key, "Registered") == 0) {
+      self->ims_registered = g_variant_get_boolean (value);
+      break;
+    }
+  }
+
+  g_variant_unref (properties);
+}
+
+static void
 dial_cb (GDBOVoiceCallManager *voice,
          GAsyncResult         *res,
          CallsOfonoOrigin     *self)
@@ -320,6 +364,15 @@ dial_cb (GDBOVoiceCallManager *voice,
   if (!ok)
     g_warning ("Error dialing number on modem `%s': %s",
                self->name, error->message);
+
+  /* We call this early because GetProperties itself takes some time to execute.
+   * This is why its here. */
+  if (self->ims)
+    gdbo_ip_multimedia_system_call_get_properties
+      (self->ims,
+      NULL,
+      (GAsyncReadyCallback) ims_get_properties_cb,
+      self);
 
   /* We will add the call through the call-added signal */
 }
@@ -559,7 +612,7 @@ voice_call_proxy_new_cb (GDBusConnection                   *connection,
     return;
   }
 
-  call = calls_ofono_call_new (voice_call, data->properties);
+  call = calls_ofono_call_new (voice_call, data->properties, self->ims_registered);
   g_signal_connect_swapped (call, "tone",
                             G_CALLBACK (tone_cb), self);
 
@@ -798,6 +851,25 @@ ussd_new_cb (GDBusConnection  *connection,
 
 
 static void
+ims_new_cb (GDBusConnection  *connection,
+            GAsyncResult     *res,
+            CallsOfonoOrigin *self)
+{
+  g_autoptr (GError) error = NULL;
+  self->ims_registered = FALSE;
+  self->ims = gdbo_ip_multimedia_system_proxy_new_finish
+                  (res, &error);
+  if (!self->ims) {
+    g_warning ("Error creating oFono"
+               " IpMultimediaSystem `%s' proxy: %s",
+               self->name, error->message);
+    CALLS_ERROR (self, error);
+    return;
+  }
+}
+
+
+static void
 constructed (GObject *object)
 {
   CallsOfonoOrigin *self = CALLS_OFONO_ORIGIN (object);
@@ -833,6 +905,13 @@ constructed (GObject *object)
                                          NULL,
                                          (GAsyncReadyCallback) ussd_new_cb,
                                          self);
+  gdbo_ip_multimedia_system_proxy_new (self->connection,
+                                       G_DBUS_PROXY_FLAGS_NONE,
+                                       g_dbus_proxy_get_name (modem_proxy),
+                                       g_dbus_proxy_get_object_path (modem_proxy),
+                                       NULL,
+                                       (GAsyncReadyCallback) ims_new_cb,
+                                       self);
 }
 
 

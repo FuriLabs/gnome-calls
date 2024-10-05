@@ -27,6 +27,7 @@
 
 #include <libgdbofono/gdbo-modem.h>
 #include <libgdbofono/gdbo-ussd.h>
+#include <libgdbofono/gdbo-ims.h>
 
 #include <glib-object.h>
 
