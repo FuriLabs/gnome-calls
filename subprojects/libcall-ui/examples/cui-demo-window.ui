@@ -126,7 +126,12 @@
                               <object class="GtkBox" id="accept_call_box">
                                 <property name="orientation">1</property>
                                 <child>
-                                  <object class="CuiCallDisplay" id="call_display"></object>
+                                  <object class="CuiCallDisplay" id="call_display">
+                                    <property name="margin-top">24</property>
+                                    <property name="margin-bottom">24</property>
+                                    <property name="margin-start">24</property>
+                                    <property name="margin-end">24</property>
+                                  </object>
                                 </child>
                               </object>
                             </child>
