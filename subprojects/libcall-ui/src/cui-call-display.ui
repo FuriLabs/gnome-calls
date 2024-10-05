@@ -13,10 +13,6 @@
             <property name="width-request">300</property>
             <property name="sensitive" bind-source="dial_pad_revealer" bind-property="reveal-child" bind-flags="bidirectional|sync-create|invert-boolean"/>
             <property name="halign">center</property>
-            <property name="margin-start">24</property>
-            <property name="margin-end">24</property>
-            <property name="margin-top">24</property>
-            <property name="margin-bottom">24</property>
             <property name="vexpand">True</property>
             <property name="valign">center</property>
             <property name="orientation">vertical</property>
@@ -67,6 +63,11 @@
                     </child>
                     <child>
                       <object class="CuiEncryptionIndicator" id="encryption_indicator">
+                        <style>
+                          <class name="dim-label"/>
+                        </style>
+                      </object>
+                      <object class="CuiVolteIndicator" id="volte_indicator">
                         <style>
                           <class name="dim-label"/>
                         </style>
