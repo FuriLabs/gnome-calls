@@ -46,6 +46,7 @@ struct _CallsOfonoOrigin {
   GHashTable           *calls;
 
   CallsUssdState        ussd_state;
+  GStrv                 emergency_numbers;
 };
 
 static void calls_ofono_origin_message_source_interface_init (CallsOriginInterface *iface);
@@ -424,7 +425,7 @@ get_property (GObject    *object,
     break;
 
   case PROP_EMERGENCY_NUMBERS:
-    g_value_set_boxed (value, NULL);
+    g_value_set_boxed (value, self->emergency_numbers);
     break;
 
   default:
@@ -689,6 +690,58 @@ get_calls_cb (GDBOVoiceCallManager *voice,
 }
 
 static void
+voice_call_manager_get_properties_cb (GDBOVoiceCallManager *voice,
+                                      GAsyncResult         *res,
+                                      CallsOfonoOrigin     *self)
+{
+  gboolean ok;
+  g_autoptr (GVariant) properties = NULL;
+  g_autoptr (GError) error = NULL;
+  gboolean emergency_numbers_updated = FALSE;
+  GVariantIter iter;
+  gchar *key;
+  GVariant *value;
+
+  ok = gdbo_voice_call_manager_call_get_properties_finish (voice,
+                                                           &properties,
+                                                           res,
+                                                           &error);
+  if (!ok) {
+    g_warning ("Error getting properties from oFono"
+               " VoiceCallManager `%s': %s",
+               self->name, error->message);
+    CALLS_ERROR (self, error);
+    return;
+  }
+
+  {
+    g_autofree char *text = g_variant_print (properties, TRUE);
+    g_debug ("Received properties from oFono"
+             " VoiceCallManager `%s': %s",
+             self->name, text);
+  }
+
+  g_variant_iter_init (&iter, properties);
+  while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
+    if (g_strcmp0 (key, "EmergencyNumbers") == 0) {
+      gsize n_elements;
+      g_autofree const gchar **emergency_numbers = g_variant_get_strv (value, &n_elements);
+
+      /* oFono will still expose an empty property even if it actually doesn't have any numbers, we must check whether or not it is empty */
+      if (emergency_numbers && n_elements > 0 && emergency_numbers[0][0] != '\0') {
+        if (self->emergency_numbers)
+          g_strfreev (self->emergency_numbers);
+        self->emergency_numbers = g_strdupv ((gchar **) emergency_numbers);
+        emergency_numbers_updated = TRUE;
+      }
+    }
+  }
+
+  if (emergency_numbers_updated)
+    g_object_notify_by_pspec (G_OBJECT (self), props[PROP_EMERGENCY_NUMBERS]);
+}
+
+static void
 voice_new_cb (GDBusConnection  *connection,
               GAsyncResult     *res,
               CallsOfonoOrigin *self)
@@ -714,6 +767,11 @@ voice_new_cb (GDBusConnection  *connection,
     NULL,
     (GAsyncReadyCallback) get_calls_cb,
     self);
+
+  gdbo_voice_call_manager_call_get_properties (self->voice,
+                                               NULL,
+                                               (GAsyncReadyCallback) voice_call_manager_get_properties_cb,
+                                               self);
 }
 
 
