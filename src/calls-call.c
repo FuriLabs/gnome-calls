@@ -55,6 +55,7 @@ enum {
   PROP_PROTOCOL,
   PROP_CALL_TYPE,
   PROP_ENCRYPTED,
+  PROP_VOLTE_ENABLED,
   N_PROPS,
 };
 
@@ -72,6 +73,7 @@ typedef struct {
   CallsCallState state;
   gboolean       inbound;
   gboolean       encrypted;
+  gboolean       volte_enabled;
   CallsCallType  call_type;
   gboolean       hung_up;
 } CallsCallPrivate;
@@ -100,6 +102,13 @@ calls_call_real_send_dtmf_tone (CallsCall *self,
                                 char       key)
 {
   g_info ("Beep! (%c)", key);
+}
+
+
+static gboolean
+calls_call_real_get_volte_enabled (CallsCall *self)
+{
+  return FALSE;
 }
 
 static void
@@ -138,6 +147,10 @@ calls_call_set_property (GObject      *object,
 
   case PROP_ENCRYPTED:
     calls_call_set_encrypted (self, g_value_get_boolean (value));
+    break;
+
+  case PROP_VOLTE_ENABLED:
+    calls_call_set_volte_enabled (self, g_value_get_boolean (value));
     break;
 
   default:
@@ -183,6 +196,10 @@ calls_call_get_property (GObject    *object,
     g_value_set_boolean (value, calls_call_get_encrypted (self));
     break;
 
+  case PROP_VOLTE_ENABLED:
+    g_value_set_boolean (value, calls_call_get_volte_enabled (self));
+    break;
+
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
   }
@@ -213,6 +230,7 @@ calls_call_class_init (CallsCallClass *klass)
   klass->answer = calls_call_real_answer;
   klass->hang_up = calls_call_real_hang_up;
   klass->send_dtmf_tone = calls_call_real_send_dtmf_tone;
+  klass->get_volte_enabled = calls_call_real_get_volte_enabled;
 
   /**
    * CallsCall:inbound: (attributes org.gtk.Property.get=calls_call_get_inbound)
@@ -309,6 +327,19 @@ calls_call_class_init (CallsCallClass *klass)
     g_param_spec_boolean ("encrypted",
                           "encrypted",
                           "If the call is encrypted",
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
+  /**
+   * CallsCall:volte-enabled:
+   *
+   * If the call is VoLTE-enabled
+   */
+
+  properties[PROP_VOLTE_ENABLED] =
+    g_param_spec_boolean ("volte-enabled",
+                          "volte-enabled",
+                          "If the call is VoLTE-enabled",
                           FALSE,
                           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
@@ -655,6 +686,45 @@ calls_call_set_encrypted (CallsCall *self,
   priv->encrypted = encrypted;
 
   g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_ENCRYPTED]);
+}
+
+/**
+ * calls_call_get_volte_enabled:
+ * @self: A #CallsCall
+ *
+ * Returns: %TRUE if the call is VoLTE-enabled, %FALSE otherwise.
+ */
+gboolean
+calls_call_get_volte_enabled (CallsCall *self)
+{
+  g_return_val_if_fail (CALLS_IS_CALL (self), FALSE);
+
+  return CALLS_CALL_GET_CLASS (self)->get_volte_enabled (self);
+}
+
+/**
+ * calls_call_set_volte_enabled:
+ * @self: A #CallsCall
+ * @volte_enabled: A boolean indicating if the call is VoLTE-enabled
+ *
+ * Set whether the call is VoLTE-enabled or not.
+ */
+void
+calls_call_set_volte_enabled (CallsCall *self,
+                              gboolean   volte_enabled)
+{
+  CallsCallPrivate *priv = calls_call_get_instance_private (self);
+
+  g_return_if_fail (CALLS_IS_CALL (self));
+
+  if (priv->volte_enabled == volte_enabled)
+    return;
+
+  g_debug ("VoLTE-%sabled", volte_enabled ? "en" : "dis");
+
+  priv->volte_enabled = volte_enabled;
+
+  g_object_notify_by_pspec (G_OBJECT (self), properties[PROP_VOLTE_ENABLED]);
 }
 
 /**

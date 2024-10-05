@@ -136,6 +136,18 @@
       </doc:doc>
     </property>
     <!--
+        VoLTE-enabled:
+
+        Whether this call is VoLTE-enabled.
+    -->
+    <property name="Volte-enabled" type="b" access="read">
+      <doc:doc>
+        <doc:description>
+          <doc:para>Whether the call is VoLTE-enabled</doc:para>
+        </doc:description>
+      </doc:doc>
+    </property>
+    <!--
         CanDtmf:
 
         Whether this call is capable of sending DTMF.
