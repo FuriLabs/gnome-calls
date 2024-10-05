@@ -264,6 +264,7 @@ call_added_cb (CallsDBusManager *self, CuiCall *call)
   g_object_bind_property (call, "display-name", iface, "display-name", G_BINDING_SYNC_CREATE);
   g_object_bind_property (call, "protocol", iface, "protocol", G_BINDING_SYNC_CREATE);
   g_object_bind_property (call, "encrypted", iface, "encrypted", G_BINDING_SYNC_CREATE);
+  g_object_bind_property (call, "volte-enabled", iface, "volte-enabled", G_BINDING_SYNC_CREATE);
   g_object_set (iface, "can-dtmf", cui_call_get_can_dtmf (call), NULL);
 
   g_object_bind_property_full (call, "avatar-icon",

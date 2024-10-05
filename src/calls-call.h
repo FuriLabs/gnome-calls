@@ -70,6 +70,7 @@ struct _CallsCallClass {
   void         (*hang_up)              (CallsCall *self);
   void         (*send_dtmf_tone)       (CallsCall *self,
                                         char       key);
+  gboolean     (*get_volte_enabled)    (CallsCall *self);
 };
 
 const char    *calls_call_get_id                 (CallsCall *self);
@@ -84,6 +85,9 @@ void           calls_call_set_state              (CallsCall     *self,
 gboolean       calls_call_get_encrypted          (CallsCall *self);
 void           calls_call_set_encrypted          (CallsCall *self,
                                                   gboolean   encrypted);
+gboolean       calls_call_get_volte_enabled      (CallsCall *self);
+void           calls_call_set_volte_enabled      (CallsCall *self,
+                                                  gboolean   volte_enabled);
 CallsCallType  calls_call_get_call_type          (CallsCall *self);
 gboolean       calls_call_get_inbound            (CallsCall *self);
 const char    *calls_call_get_protocol           (CallsCall *self);

@@ -42,6 +42,7 @@ enum {
   PROP_CAN_DTMF,
   PROP_AVATAR_ICON,
   PROP_ACTIVE_TIME,
+  PROP_VOLTE_ENABLED,
   PROP_SILENCED,
   PROP_UI_ACTIVE,
   PROP_LAST_PROP
@@ -214,6 +215,19 @@ calls_ui_call_data_send_dtmf (CuiCall    *call_data,
   calls_call_send_dtmf_tone (self->call, *dtmf);
 }
 
+
+static gboolean
+calls_ui_call_data_get_volte_enabled (CuiCall *call_data)
+{
+  CallsUiCallData *self = (CallsUiCallData *) call_data;
+
+  g_return_val_if_fail (CALLS_IS_UI_CALL_DATA (self), FALSE);
+  g_return_val_if_fail (!!self->call, FALSE);
+
+  return calls_call_get_volte_enabled (self->call);
+}
+
+
 static void
 calls_ui_call_data_cui_call_interface_init (CuiCallInterface *iface)
 {
@@ -224,6 +238,7 @@ calls_ui_call_data_cui_call_interface_init (CuiCallInterface *iface)
   iface->get_can_dtmf = calls_ui_call_data_get_can_dtmf;
   iface->get_avatar_icon = calls_ui_call_data_get_avatar_icon;
   iface->get_active_time = calls_ui_call_data_get_active_time;
+  iface->get_volte_enabled = calls_ui_call_data_get_volte_enabled;
 
   iface->accept = calls_ui_call_data_accept;
   iface->hang_up = calls_ui_call_data_hang_up;
@@ -326,6 +341,14 @@ on_notify_encrypted (CallsUiCallData *self)
   g_object_notify_by_pspec (G_OBJECT (self), props[PROP_ENCRYPTED]);
 }
 
+static void
+on_notify_volte_enabled (CallsUiCallData *self)
+{
+  g_assert (CALLS_IS_UI_CALL_DATA (self));
+
+  g_object_notify_by_pspec (G_OBJECT (self), props[PROP_VOLTE_ENABLED]);
+}
+
 
 static void
 set_call_data (CallsUiCallData *self,
@@ -347,6 +370,12 @@ set_call_data (CallsUiCallData *self,
   g_signal_connect_object (self->call,
                            "notify::encrypted",
                            G_CALLBACK (on_notify_encrypted),
+                           self,
+                           G_CONNECT_SWAPPED);
+
+  g_signal_connect_object (self->call,
+                           "notify::volte-enabled",
+                           G_CALLBACK (on_notify_volte_enabled),
                            self,
                            G_CONNECT_SWAPPED);
 
@@ -506,6 +535,10 @@ calls_ui_call_data_get_property (GObject    *object,
   case PROP_ACTIVE_TIME:
     g_value_set_double (value, self->active_time);
 
+  case PROP_VOLTE_ENABLED:
+    g_value_set_boolean (value, calls_ui_call_data_get_volte_enabled (cui_call));
+    break;
+
   case PROP_SILENCED:
     g_value_set_boolean (value, calls_ui_call_data_get_silenced (self));
     break;
@@ -627,6 +660,9 @@ calls_ui_call_data_class_init (CallsUiCallDataClass *klass)
 
   g_object_class_override_property (object_class, PROP_ACTIVE_TIME, "active-time");
   props[PROP_ACTIVE_TIME] = g_object_class_find_property (object_class, "active-time");
+
+  g_object_class_override_property (object_class, PROP_VOLTE_ENABLED, "volte-enabled");
+  props[PROP_VOLTE_ENABLED] = g_object_class_find_property (object_class, "volte-enabled");
 
   /**
    * CallsUiCallData::state-changed:
