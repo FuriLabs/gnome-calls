@@ -204,7 +204,7 @@ constructed (GObject *object)
 
   G_OBJECT_CLASS (calls_history_box_parent_class)->constructed (object);
 
-  self->slice_model = gtk_slice_list_model_new (self->model,
+  self->slice_model = gtk_slice_list_model_new (g_object_ref (self->model),
                                                 0,
                                                 CALLS_HISTORY_SIZE_INITIAL);
 
@@ -229,13 +229,10 @@ static void
 dispose (GObject *object)
 {
   CallsHistoryBox *self = CALLS_HISTORY_BOX (object);
-  GtkWidget *stack = GTK_WIDGET (self->stack);
 
   g_clear_signal_handler (&self->model_changed_handler_id, self->model);
   g_clear_object (&self->slice_model);
   g_clear_object (&self->model);
-
-  g_clear_pointer (&stack, gtk_widget_unparent);
 
   G_OBJECT_CLASS (calls_history_box_parent_class)->dispose (object);
 }
