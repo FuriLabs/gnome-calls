@@ -244,10 +244,10 @@ notify_time_cb (CallsCallRecordRow *self,
   update_time (self, inbound, answered, end);
 
   if (answered)
-    calls_clear_signal (record, &self->answered_notify_handler_id);
+    g_clear_signal_handler (&self->answered_notify_handler_id, record);
 
   if (end)
-    calls_clear_signal (record, &self->end_notify_handler_id);
+    g_clear_signal_handler (&self->end_notify_handler_id, record);
 }
 
 
@@ -384,10 +384,7 @@ on_long_pressed (GtkGestureLongPress *gesture,
                  gdouble              y,
                  GtkWidget           *self)
 {
-  if (!gtk_widget_get_realized (self)) {
-    g_warning ("widget is not realized, why does it emit 'pressed'? Aborting..");
-    return;
-  }
+  g_return_if_fail (gtk_widget_get_realized (self));
 
   context_menu (self, NULL);
 }
@@ -418,8 +415,7 @@ set_property (GObject      *object,
 
   switch (property_id) {
   case PROP_RECORD:
-    g_set_object (&self->record,
-                  CALLS_CALL_RECORD (g_value_get_object (value)));
+    g_set_object (&self->record, g_value_get_object (value));
     break;
 
   default:
@@ -495,30 +491,21 @@ static void
 dispose (GObject *object)
 {
   CallsCallRecordRow *self = CALLS_CALL_RECORD_ROW (object);
+  GtkWidget *popover = GTK_WIDGET (self->popover);
+
+  g_clear_pointer (&popover, gtk_widget_unparent);
 
   g_clear_object (&self->contact);
   g_clear_object (&self->action_map);
 
   g_clear_handle_id (&self->date_change_timeout, g_source_remove);
-  calls_clear_signal (self->record, &self->answered_notify_handler_id);
-  calls_clear_signal (self->record, &self->end_notify_handler_id);
+  g_clear_signal_handler (&self->answered_notify_handler_id, self->record);
+  g_clear_signal_handler (&self->end_notify_handler_id, self->record);
   g_clear_object (&self->record);
 
   G_OBJECT_CLASS (calls_call_record_row_parent_class)->dispose (object);
 }
 
-
-static void
-finalize (GObject *object)
-{
-  CallsCallRecordRow *self = CALLS_CALL_RECORD_ROW (object);
-
-  GtkWidget *popover = GTK_WIDGET (self->popover);
-
-  g_clear_pointer (&popover, gtk_widget_unparent);
-
-  G_OBJECT_CLASS (calls_call_record_row_parent_class)->dispose (object);
-}
 
 
 static void
@@ -531,7 +518,6 @@ calls_call_record_row_class_init (CallsCallRecordRowClass *klass)
   object_class->constructed = constructed;
   object_class->get_property = get_property;
   object_class->dispose = dispose;
-  object_class->finalize = finalize;
 
   props[PROP_RECORD] =
     g_param_spec_object ("record",
