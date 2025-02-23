@@ -1,8 +1,9 @@
-gnome-calls (48~beta.1-1) UNRELEASED; urgency=medium
+gnome-calls (48~beta.1-1) unstable; urgency=medium
 
   * New upstream release
+  * d/control: Declare conformance with Debian policy 4.7.1 (no changed needed)
 
- -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Sun, 23 Feb 2025 18:45:08 +0100
+ -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Sun, 23 Feb 2025 18:58:13 +0100
 
 gnome-calls (47.0-2) unstable; urgency=medium
 
