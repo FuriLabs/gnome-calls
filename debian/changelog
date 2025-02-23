@@ -1,3 +1,9 @@
+gnome-calls (48~beta.1-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Sun, 23 Feb 2025 18:45:08 +0100
+
 gnome-calls (47.0-2) unstable; urgency=medium
 
   * Team upload
