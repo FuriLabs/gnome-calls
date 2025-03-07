@@ -6,6 +6,7 @@ PartOf=graphical-session.target
 BusName=org.gnome.Calls
 ExecStart=@bindir@/gnome-calls --daemon
 Type=dbus
+Restart=always
 
 [Install]
 WantedBy=graphical-session.target
