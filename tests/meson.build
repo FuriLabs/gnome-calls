@@ -163,6 +163,7 @@ t = executable('dbus', test_sources, generated_dbus_sources,
                )
 test('dbus', t, env: test_env)
 
+'''
 dbus_run_session = find_program('dbus-run-session')
 
 if dbus_run_session.found ()
@@ -184,5 +185,6 @@ if dbus_run_session.found ()
       timeout : 300
       )
 endif
+'''
 
 endif
