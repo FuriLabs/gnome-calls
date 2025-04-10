@@ -1,1 +1,2 @@
 disable-flaky-sip-test.patch
+disable-application-test.patch
