@@ -1,9 +1,11 @@
-gnome-calls (48.1-1) UNRELEASED; urgency=medium
+gnome-calls (48.1-1) unstable; urgency=medium
 
   * New upstream release
     (Closes: #1101478)
+  * d/patches: Disable "application" test
+  * d/copyright: Remove old FSF postal address
 
- -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Thu, 10 Apr 2025 18:53:25 +0200
+ -- Evangelos Ribeiro Tzaras <devrtz-debian@fortysixandtwo.eu>  Thu, 10 Apr 2025 19:04:40 +0200
 
 gnome-calls (48.0-1) unstable; urgency=medium
 
