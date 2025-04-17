@@ -8,6 +8,7 @@ After=gnome-session-initialized.target
 BusName=org.gnome.Calls
 ExecStart=@bindir@/gnome-calls --daemon
 Type=dbus
+Restart=always
 
 [Install]
 WantedBy=gnome-session.target
