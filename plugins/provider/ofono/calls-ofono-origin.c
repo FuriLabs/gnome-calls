@@ -317,12 +317,9 @@ dial_cb (GDBOVoiceCallManager *voice,
   g_autoptr (GError) error = NULL;
 
   ok = gdbo_voice_call_manager_call_dial_finish (voice, NULL, res, &error);
-  if (!ok) {
+  if (!ok)
     g_warning ("Error dialing number on modem `%s': %s",
                self->name, error->message);
-    CALLS_ERROR (self, error);
-    return;
-  }
 
   /* We will add the call through the call-added signal */
 }
