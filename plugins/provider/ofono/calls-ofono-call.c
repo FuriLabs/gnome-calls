@@ -36,6 +36,7 @@ struct _CallsOfonoCall {
   GDBOVoiceCall *voice_call;
   GDBOVoiceCallManager *voice_call_manager;
   gchar         *disconnect_reason;
+  gboolean       volte_enabled;
 };
 
 static void calls_ofono_call_message_source_interface_init (CallsMessageSourceInterface *iface);
@@ -48,6 +49,7 @@ enum {
   PROP_0,
   PROP_VOICE_CALL,
   PROP_VOICE_CALL_MANAGER,
+  PROP_VOLTE_ENABLED,
   PROP_LAST_PROP,
 };
 static GParamSpec *props[PROP_LAST_PROP];
@@ -169,6 +171,15 @@ calls_ofono_call_send_dtmf_tone (CallsCall *call, gchar key)
 }
 
 
+static gboolean
+calls_ofono_call_get_volte_enabled (CallsCall *call)
+{
+  CallsOfonoCall *self = CALLS_OFONO_CALL (call);
+
+  return self->volte_enabled;
+}
+
+
 static void
 set_property (GObject      *object,
               guint         property_id,
@@ -188,11 +199,35 @@ set_property (GObject      *object,
       (&self->voice_call_manager, GDBO_VOICE_CALL_MANAGER (g_value_get_object (value)));
     break;
 
+  case PROP_VOLTE_ENABLED:
+    self->volte_enabled = g_value_get_boolean (value);
+    break;
+
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
   }
 }
+
+static void
+get_property (GObject    *object,
+              guint       property_id,
+              GValue     *value,
+              GParamSpec *pspec)
+{
+  CallsOfonoCall *self = CALLS_OFONO_CALL (object);
+
+  switch (property_id) {
+  case PROP_VOLTE_ENABLED:
+    g_value_set_boolean (value, self->volte_enabled);
+    break;
+
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
 
 static void
 property_changed_cb (CallsOfonoCall *self,
@@ -288,6 +323,7 @@ calls_ofono_call_class_init (CallsOfonoCallClass *klass)
   GType tone_arg_types = G_TYPE_CHAR;
 
   object_class->set_property = set_property;
+  object_class->get_property = get_property;
   object_class->constructed = constructed;
   object_class->dispose = dispose;
   object_class->finalize = finalize;
@@ -296,6 +332,7 @@ calls_ofono_call_class_init (CallsOfonoCallClass *klass)
   call_class->answer = calls_ofono_call_answer;
   call_class->hang_up = calls_ofono_call_hang_up;
   call_class->send_dtmf_tone = calls_ofono_call_send_dtmf_tone;
+  call_class->get_volte_enabled = calls_ofono_call_get_volte_enabled;
 
   props[PROP_VOICE_CALL] =
     g_param_spec_object ("voice-call",
@@ -310,6 +347,14 @@ calls_ofono_call_class_init (CallsOfonoCallClass *klass)
                          "A GDBO proxy object for the underlying voice call manager object",
                          GDBO_TYPE_VOICE_CALL,
                          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY);
+
+  props[PROP_VOLTE_ENABLED] =
+    g_param_spec_boolean ("volte-enabled",
+                          "VoLTE enabled",
+                          "Whether the call is VoLTE-enabled",
+                          FALSE,
+                          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+
   g_object_class_install_properties (object_class, PROP_LAST_PROP, props);
 
   signals[SIGNAL_TONE] =
@@ -336,7 +381,8 @@ calls_ofono_call_init (CallsOfonoCall *self)
 CallsOfonoCall *
 calls_ofono_call_new (GDBOVoiceCall *voice_call,
                       GVariant      *call_props,
-                      GDBOVoiceCallManager *voice_call_manager)
+                      GDBOVoiceCallManager *voice_call_manager,
+                      gboolean       ims_registered)
 {
   const char *state_str = NULL;
   const char *name = NULL;
@@ -369,6 +415,7 @@ calls_ofono_call_new (GDBOVoiceCall *voice_call,
                        "inbound", inbound,
                        "state", state,
                        "call-type", CALLS_CALL_TYPE_CELLULAR,
+                       "volte-enabled", ims_registered,
                        NULL);
 }
 

@@ -39,7 +39,8 @@ G_DECLARE_FINAL_TYPE (CallsOfonoCall, calls_ofono_call, CALLS, OFONO_CALL, Calls
 
 CallsOfonoCall *calls_ofono_call_new (GDBOVoiceCall *voice_call,
                                       GVariant      *properties,
-                                      GDBOVoiceCallManager *voice);
+                                      GDBOVoiceCallManager *voice,
+                                      gboolean       ims_registered);
 const gchar *calls_ofono_call_get_object_path (CallsOfonoCall *call);
 const gchar *calls_ofono_call_get_disconnect_reason (CallsOfonoCall *call);
 
