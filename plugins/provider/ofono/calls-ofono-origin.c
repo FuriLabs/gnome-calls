@@ -559,7 +559,7 @@ voice_call_proxy_new_cb (GDBusConnection                   *connection,
     return;
   }
 
-  call = calls_ofono_call_new (voice_call, data->properties);
+  call = calls_ofono_call_new (voice_call, data->properties, self->voice);
   g_signal_connect_swapped (call, "tone",
                             G_CALLBACK (tone_cb), self);
 

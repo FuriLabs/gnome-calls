@@ -34,6 +34,7 @@
 struct _CallsOfonoCall {
   GObject        parent_instance;
   GDBOVoiceCall *voice_call;
+  GDBOVoiceCallManager *voice_call_manager;
   gchar         *disconnect_reason;
 };
 
@@ -46,6 +47,7 @@ G_DEFINE_TYPE_WITH_CODE (CallsOfonoCall, calls_ofono_call, CALLS_TYPE_CALL,
 enum {
   PROP_0,
   PROP_VOICE_CALL,
+  PROP_VOICE_CALL_MANAGER,
   PROP_LAST_PROP,
 };
 static GParamSpec *props[PROP_LAST_PROP];
@@ -70,6 +72,22 @@ struct CallsCallOperationData {
 
 
 static void
+hangup_all_cb (GDBOVoiceCallManager *voice_call_manager,
+               GAsyncResult         *res,
+               CallsOfonoCall       *self)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ok;
+
+  ok = gdbo_voice_call_manager_call_hangup_all_finish (voice_call_manager, res, &error);
+  if (!ok) {
+    g_warning ("Error hanging up all calls: %s", error->message);
+    CALLS_ERROR (self, error);
+  }
+}
+
+
+static void
 operation_cb (GDBOVoiceCall                 *voice_call,
               GAsyncResult                  *res,
               struct CallsCallOperationData *data)
@@ -84,7 +102,14 @@ operation_cb (GDBOVoiceCall                 *voice_call,
                data->desc,
                calls_call_get_id (CALLS_CALL (data->self)),
                error->message);
-    CALLS_ERROR (data->self, error);
+
+    if (g_strcmp0 (data->desc, "hanging up") == 0)
+      gdbo_voice_call_manager_call_hangup_all (data->self->voice_call_manager,
+                                               NULL,
+                                               (GAsyncReadyCallback) hangup_all_cb,
+                                               data->self);
+    else if (g_strcmp0 (data->desc, "answering") == 0)
+      CALLS_ERROR (data->self, error);
   }
 
   g_object_unref (data->self);
@@ -120,6 +145,9 @@ calls_ofono_call_hang_up (CallsCall *call)
   data->self = g_object_ref (self);
   data->finish_func = gdbo_voice_call_call_hangup_finish;
 
+  /* Set 5 second timeout for the voice_call proxy */
+  g_dbus_proxy_set_default_timeout (G_DBUS_PROXY (self->voice_call), 5000);
+
   gdbo_voice_call_call_hangup (self->voice_call, NULL,
                                (GAsyncReadyCallback) operation_cb,
                                data);
@@ -153,6 +181,11 @@ set_property (GObject      *object,
   case PROP_VOICE_CALL:
     g_set_object
       (&self->voice_call, GDBO_VOICE_CALL (g_value_get_object (value)));
+    break;
+
+  case PROP_VOICE_CALL_MANAGER:
+    g_set_object
+      (&self->voice_call_manager, GDBO_VOICE_CALL_MANAGER (g_value_get_object (value)));
     break;
 
   default:
@@ -270,7 +303,14 @@ calls_ofono_call_class_init (CallsOfonoCallClass *klass)
                          "A GDBO proxy object for the underlying call object",
                          GDBO_TYPE_VOICE_CALL,
                          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY);
-  g_object_class_install_property (object_class, PROP_VOICE_CALL, props[PROP_VOICE_CALL]);
+
+  props[PROP_VOICE_CALL_MANAGER] =
+    g_param_spec_object ("voice-call-manager",
+                         "Voice call manager",
+                         "A GDBO proxy object for the underlying voice call manager object",
+                         GDBO_TYPE_VOICE_CALL,
+                         G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY);
+  g_object_class_install_properties (object_class, PROP_LAST_PROP, props);
 
   signals[SIGNAL_TONE] =
     g_signal_newv ("tone",
@@ -295,7 +335,8 @@ calls_ofono_call_init (CallsOfonoCall *self)
 
 CallsOfonoCall *
 calls_ofono_call_new (GDBOVoiceCall *voice_call,
-                      GVariant      *call_props)
+                      GVariant      *call_props,
+                      GDBOVoiceCallManager *voice_call_manager)
 {
   const char *state_str = NULL;
   const char *name = NULL;
@@ -304,6 +345,7 @@ calls_ofono_call_new (GDBOVoiceCall *voice_call,
   gboolean inbound = FALSE;
 
   g_return_val_if_fail (GDBO_IS_VOICE_CALL (voice_call), NULL);
+  g_return_val_if_fail (GDBO_IS_VOICE_CALL_MANAGER (voice_call_manager), NULL);
   g_return_val_if_fail (call_props != NULL, NULL);
 
   g_variant_lookup (call_props, "LineIdentification", "s", &id);
@@ -321,6 +363,7 @@ calls_ofono_call_new (GDBOVoiceCall *voice_call,
 
   return g_object_new (CALLS_TYPE_OFONO_CALL,
                        "voice-call", voice_call,
+                       "voice-call-manager", voice_call_manager,
                        "id", id,
                        "name", name,
                        "inbound", inbound,

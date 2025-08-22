@@ -26,6 +26,7 @@
 #define CALLS_OFONO_CALL_H__
 
 #include <libgdbofono/gdbo-call.h>
+#include <libgdbofono/gdbo-modem.h>
 #include <glib-object.h>
 
 #include "calls-call.h"
@@ -37,7 +38,8 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (CallsOfonoCall, calls_ofono_call, CALLS, OFONO_CALL, CallsCall)
 
 CallsOfonoCall *calls_ofono_call_new (GDBOVoiceCall *voice_call,
-                                      GVariant      *properties);
+                                      GVariant      *properties,
+                                      GDBOVoiceCallManager *voice);
 const gchar *calls_ofono_call_get_object_path (CallsOfonoCall *call);
 const gchar *calls_ofono_call_get_disconnect_reason (CallsOfonoCall *call);
 
