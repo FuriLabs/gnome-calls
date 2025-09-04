@@ -42,6 +42,7 @@ struct _CallsOfonoOrigin {
   GDBOVoiceCallManager *voice;
   GDBOSupplementaryServices *ussd;
   GDBOIpMultimediaSystem *ims;
+  GDBOCallSettings     *call_settings;
   gboolean              sending_tones;
   GString              *tone_queue;
   GHashTable           *calls;
@@ -789,11 +790,112 @@ voice_call_manager_get_properties_cb (GDBOVoiceCallManager *voice,
 }
 
 static void
+set_property_cb (GDBOCallSettings *call_settings,
+                 GAsyncResult     *res,
+                 CallsOfonoOrigin *self)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ok;
+
+  ok = gdbo_call_settings_call_set_property_finish (call_settings, res, &error);
+  if (!ok)
+    g_warning ("Error setting VoiceCallWaiting property on modem `%s': %s",
+               self->name, error->message);
+  else
+    g_debug ("Successfully set VoiceCallWaiting to disabled for modem `%s'", self->name);
+}
+
+static void
+call_settings_get_properties_cb (GDBOCallSettings *call_settings,
+                                 GAsyncResult     *res,
+                                 CallsOfonoOrigin *self)
+{
+  gboolean ok;
+  g_autoptr (GVariant) properties = NULL;
+  g_autoptr (GError) error = NULL;
+  GVariantIter iter;
+  gchar *key;
+  GVariant *value;
+  gboolean voice_call_waiting_enabled = FALSE;
+  gboolean found_voice_call_waiting = FALSE;
+
+  ok = gdbo_call_settings_call_get_properties_finish (call_settings, &properties, res, &error);
+  if (!ok) {
+    g_warning ("Error getting properties from oFono"
+               " CallSettings `%s': %s",
+               self->name, error->message);
+    CALLS_ERROR (self, error);
+    return;
+  }
+
+  {
+    g_autofree char *text = g_variant_print (properties, TRUE);
+    g_debug ("Received properties from oFono"
+             " CallSettings `%s': %s",
+             self->name, text);
+  }
+
+  g_variant_iter_init (&iter, properties);
+  while (g_variant_iter_loop (&iter, "{sv}", &key, &value)) {
+    if (g_strcmp0 (key, "VoiceCallWaiting") == 0) {
+      const gchar *waiting_status = g_variant_get_string (value, NULL);
+      found_voice_call_waiting = TRUE;
+      voice_call_waiting_enabled = g_strcmp0 (waiting_status, "enabled") == 0;
+      g_debug ("Found VoiceCallWaiting property: %s", waiting_status);
+      break;
+    }
+  }
+
+  if (found_voice_call_waiting && voice_call_waiting_enabled) {
+    GVariant *disabled_value = g_variant_new_string ("disabled");
+    g_debug ("VoiceCallWaiting is enabled, setting to disabled for modem `%s'", self->name);
+
+    gdbo_call_settings_call_set_property (self->call_settings,
+                                          "VoiceCallWaiting",
+                                          disabled_value,
+                                          NULL,
+                                          (GAsyncReadyCallback) set_property_cb,
+                                          self);
+  } else if (found_voice_call_waiting) {
+    g_debug ("VoiceCallWaiting is already disabled for modem `%s'", self->name);
+  } else {
+    g_debug ("VoiceCallWaiting property not found for modem `%s'", self->name);
+  }
+}
+
+static void
+call_settings_new_cb (GDBusConnection  *connection,
+                      GAsyncResult     *res,
+                      CallsOfonoOrigin *self)
+{
+  g_autoptr (GError) error = NULL;
+
+  self->call_settings = gdbo_call_settings_proxy_new_finish (res, &error);
+  if (!self->call_settings) {
+    g_warning ("Error creating oFono"
+               " CallSettings `%s' proxy: %s",
+               self->name, error->message);
+    CALLS_ERROR (self, error);
+    return;
+  }
+
+  gdbo_call_settings_call_get_properties (self->call_settings,
+                                          NULL,
+                                          (GAsyncReadyCallback) call_settings_get_properties_cb,
+                                          self);
+}
+
+static void
 voice_new_cb (GDBusConnection  *connection,
               GAsyncResult     *res,
               CallsOfonoOrigin *self)
 {
   g_autoptr (GError) error = NULL;
+  GDBusProxy *modem_proxy;
+
+  g_return_if_fail (self->modem != NULL);
+
+  modem_proxy = G_DBUS_PROXY (self->modem);
 
   self->voice = gdbo_voice_call_manager_proxy_new_finish (res, &error);
   if (!self->voice) {
@@ -819,6 +921,14 @@ voice_new_cb (GDBusConnection  *connection,
                                                NULL,
                                                (GAsyncReadyCallback) voice_call_manager_get_properties_cb,
                                                self);
+
+  gdbo_call_settings_proxy_new (self->connection,
+                                G_DBUS_PROXY_FLAGS_NONE,
+                                g_dbus_proxy_get_name (modem_proxy),
+                                g_dbus_proxy_get_object_path (modem_proxy),
+                                NULL,
+                                (GAsyncReadyCallback) call_settings_new_cb,
+                                self);
 }
 
 
